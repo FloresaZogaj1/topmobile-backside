@@ -136,16 +136,25 @@ app.post('/api/login', async (req, res) => {
 
 // Shto porosi të re
 app.post('/api/orders', async (req, res) => {
+  console.log("Received order:", req.body);
   try {
+    console.log("Received order:", req.body);
     const { customerName, phone, address, items, total } = req.body;
-    if (!customerName || !phone || !address || !Array.isArray(items) || !total)
-      return res.status(400).json({ error: "Të gjitha fushat janë të detyrueshme!" });
+
+    if (!customerName || !phone || !address || !Array.isArray(items) || items.length === 0 || isNaN(total)) {
+      return res.status(400).json({ error: "Të gjitha fushat janë të detyrueshme dhe duhet të jenë valide!" });
+    }
+
     const order = await Order.create({ customerName, phone, address, items, total });
     res.status(201).json({ message: "Porosia u ruajt me sukses!", order });
   } catch (err) {
-    res.status(500).json({ error: "Gabim gjatë ruajtjes së porosisë" });
+    console.error("Gabim në ruajtjen e porosisë:", err);
+    res.status(500).json({ error: "Gabim gjatë ruajtjes së porosisë", details: err.message });
   }
+  
 });
+
+
 
 
 // Merr të gjitha porositë (vetëm për admin)
