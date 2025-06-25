@@ -103,7 +103,7 @@ app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
 });
 
 // REGISTER
-app.post('/api/register', async (req, res) => {
+app.post('/api/regjistrohu', async (req, res) => {
   const { username, password } = req.body;
   try {
     const ekziston = await User.findOne({ where: { username } });
@@ -119,8 +119,9 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+
 // LOGIN
-app.post('/api/login', async (req, res) => {
+app.post('/api/kyqu', async (req, res) => {
   const { username, password } = req.body;
   try {
     const user = await User.findOne({ where: { username } });
