@@ -10,9 +10,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: [
-    "http://localhost:3000",
-    "https://topmobile-frontside-url.railway.app",
-    "https://topmobile-shopsite-url.netlify.app"
+    "http://localhost:3000", 
+    "https://magical-swan-f55c0b.netlify.app"
   ],
   credentials: true
 }));
@@ -103,7 +102,7 @@ app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
 });
 
 // REGISTER
-app.post('/api/regjistrohu', async (req, res) => {
+app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   try {
     const ekziston = await User.findOne({ where: { username } });
@@ -121,7 +120,7 @@ app.post('/api/regjistrohu', async (req, res) => {
 
 
 // LOGIN
-app.post('/api/kyqu', async (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   try {
     const user = await User.findOne({ where: { username } });
