@@ -10,10 +10,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: [
-    "http://localhost:3000", 
-    "https://magical-swan-f55c0b.netlify.app"
+    "http://localhost:3000",
+   
   ],
-  credentials: true
+  credentials: true,
 }));
 
 
