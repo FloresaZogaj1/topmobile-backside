@@ -17,10 +17,26 @@ const Order      = require('./models/Order');
 const verifyAdmin  = require('./middleware/verifyAdmin');
 const adminRoutes  = require('./routes/admin');
 
+// === CORS SETUP ===
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://idyllic-panda-38509b.netlify.app/',     // Shto këtu domain-in tënd të frontit në deploy (Netlify)
+  'https://topmobile-frontside-production.up.railway.app', // Nëse ke Railway ose tjetër
+  // Shto edhe çdo domain tjetër që mund ta përdorësh në të ardhmen
+];
+
 app.use(cors({
-  origin: ['http://localhost:3000'],
-  credentials: true
+  origin: function (origin, callback) {
+    // Lejo kërkesat pa origin (p.sh. postman, mobile app, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS not allowed from this origin: ' + origin), false);
+  },
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+app.options('*', cors()); // Lejon preflight requests për çdo path
+
 app.use(express.json());
 app.use('/api/admin', adminRoutes);
 
