@@ -1,45 +1,30 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+require('dotenv').config();
+const express    = require('express');
+const cors       = require('cors');
+const bcrypt     = require('bcryptjs');
+const jwt        = require('jsonwebtoken');
 
-dotenv.config();
+const app        = express();
+const PORT       = process.env.PORT || 5000;
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+// Database & Models
+const sequelize  = require('./db');
+const Product    = require('./models/Product');
+const User       = require('./models/User');
+const Order      = require('./models/Order');
+
+// Middleware & Routes
+const verifyAdmin  = require('./middleware/verifyAdmin');
+const adminRoutes  = require('./routes/admin');
+
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "https://mellow-mouse-1e4f1d.netlify.app",
-
-  ],
-  credentials: true,
+  origin: ['http://localhost:3000'],
+  credentials: true
 }));
-
-
-
 app.use(express.json());
+app.use('/api/admin', adminRoutes);
 
-// Import databazën dhe modelet
-const sequelize = require('./db');
-const Product = require('./models/Product');
-const User = require('./models/User');
-const Order = require('./models/Order');   // Importo modelin Order
-
-// Importo middleware për admin
-const verifyAdmin = require('./middleware/verifyAdmin');
-
-// (Opsionale) Importo admin routes nëse ke ndonjë rruge tjetër për admin
-const adminRoutes = require("./routes/admin");
-app.use("/api/admin", adminRoutes);
-
-// Rruga bazë për test
-app.get('/', (req, res) => {
-  res.send('API po funksionon!');
-});
-
-// GET të gjitha produktet (publike)
+// ========== PRODUCTS ==========
 app.get('/api/products', async (req, res) => {
   try {
     const products = await Product.findAll();
@@ -49,142 +34,144 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// GET një produkt sipas ID (publike)
 app.get('/api/products/:id', async (req, res) => {
   try {
-    const product = await Product.findByPk(req.params.id);
-    if (!product) {
-      return res.status(404).json({ error: 'Produkti nuk u gjet' });
-    }
-    res.json(product);
-  } catch (err) {
+    const p = await Product.findByPk(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Produkti nuk u gjet' });
+    res.json(p);
+  } catch {
     res.status(500).json({ error: 'Gabim në marrjen e produktit' });
   }
 });
 
-// POST (Shto produkt) - VETËM ADMIN
 app.post('/api/products', verifyAdmin, async (req, res) => {
   try {
-    const { name, price, description, category, image } = req.body;
-    const product = await Product.create({ name, price, description, category, image });
-    res.status(201).json(product);
-  } catch (err) {
+    const prod = await Product.create(req.body);
+    res.status(201).json(prod);
+  } catch {
     res.status(500).json({ error: 'Gabim në shtim të produktit' });
   }
 });
 
-// PUT (Përditëso produkt) - VETËM ADMIN
 app.put('/api/products/:id', verifyAdmin, async (req, res) => {
   try {
-    const { name, price, description, category, image } = req.body;
-    const product = await Product.findByPk(req.params.id);
-    if (!product) {
-      return res.status(404).json({ error: 'Produkti nuk u gjet' });
-    }
-    await product.update({ name, price, description, category, image });
-    res.json(product);
-  } catch (err) {
+    const prod = await Product.findByPk(req.params.id);
+    if (!prod) return res.status(404).json({ error: 'Produkti nuk u gjet' });
+    await prod.update(req.body);
+    res.json(prod);
+  } catch {
     res.status(500).json({ error: 'Gabim në përditësim' });
   }
 });
 
-// DELETE (Fshi produkt) - VETËM ADMIN
 app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
   try {
-    const id = req.params.id;
-    const deleted = await Product.destroy({ where: { id } });
-    if (!deleted) {
-      return res.status(404).json({ error: 'Produkti nuk u gjet' });
-    }
+    const deleted = await Product.destroy({ where: { id: req.params.id } });
+    if (!deleted) return res.status(404).json({ error: 'Produkti nuk u gjet' });
     res.json({ message: 'Produkti u fshi me sukses' });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'Gabim në fshirje' });
   }
 });
 
-// REGISTER
+// ========== AUTH ==========
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   try {
-    const ekziston = await User.findOne({ where: { username } });
-    if (ekziston) {
-      return res.status(400).json({ error: "Username ekziston!" });
+    if (await User.findOne({ where: { username } })) {
+      return res.status(400).json({ error: 'Username ekziston!' });
     }
     const hashed = await bcrypt.hash(password, 10);
-    // Default role: user
-    const user = await User.create({ username, password: hashed, role: 'user' });
-    res.status(201).json({ message: "User u regjistrua!" });
-  } catch (err) {
-    res.status(500).json({ error: "Gabim gjatë regjistrimit" });
+    await User.create({ username, password: hashed, role: 'user' });
+    res.status(201).json({ message: 'User u regjistrua!' });
+  } catch {
+    res.status(500).json({ error: 'Gabim gjatë regjistrimit' });
   }
 });
 
-
-// LOGIN
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   try {
     const user = await User.findOne({ where: { username } });
-    if (!user) return res.status(400).json({ error: "Username ose password gabim!" });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ error: "Username ose password gabim!" });
-
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(400).json({ error: 'Username ose password gabim!' });
+    }
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
-      "sekretiYT",
-      { expiresIn: "1d" }
+      process.env.JWT_SECRET || 'sekretiYT',
+      { expiresIn: '1d' }
     );
     res.json({ token, username: user.username, role: user.role });
-  } catch (err) {
-    res.status(500).json({ error: "Gabim gjatë login-it" });
+  } catch {
+    res.status(500).json({ error: 'Gabim gjatë login-it' });
   }
 });
 
-
-// ============ ORDERS ===============
-
-// Shto porosi të re
+// ========== ORDERS ==========
 app.post('/api/orders', async (req, res) => {
-  console.log("Received order:", req.body);
   try {
-    console.log("Received order:", req.body);
     const { customerName, phone, address, items, total } = req.body;
-
-    if (!customerName || !phone || !address || !Array.isArray(items) || items.length === 0 || isNaN(total)) {
-      return res.status(400).json({ error: "Të gjitha fushat janë të detyrueshme dhe duhet të jenë valide!" });
+    if (!customerName || !phone || !address || !items?.length || isNaN(total)) {
+      return res.status(400).json({ error: 'Fushat e porosisë nuk janë valide.' });
     }
-
-    const order = await Order.create({ customerName, phone, address, items, total });
-    res.status(201).json({ message: "Porosia u ruajt me sukses!", order });
+    const ord = await Order.create({ customerName, phone, address, items, total });
+    res.status(201).json(ord);
   } catch (err) {
-    console.error("Gabim në ruajtjen e porosisë:", err);
-    res.status(500).json({ error: "Gabim gjatë ruajtjes së porosisë", details: err.message });
+    res.status(500).json({ error: 'Gabim gjatë krijimit të porosisë.' });
   }
-  
 });
 
-
-
-
-// Merr të gjitha porositë (vetëm për admin)
 app.get('/api/orders', verifyAdmin, async (req, res) => {
   try {
-    const orders = await Order.findAll({ order: [['createdAt', 'DESC']] });
-    res.json(orders);
+    const all = await Order.findAll({ order: [['createdAt', 'DESC']] });
+    res.json(all);
   } catch (err) {
-    res.status(500).json({ error: "Gabim gjatë marrjes së porosive" });
+    res.status(500).json({ error: 'Gabim gjatë marrjes së porosive.' });
   }
 });
 
-// ====================================
+app.put('/api/orders/:id', async (req, res) => {
+  try {
+    const ord = await Order.findByPk(req.params.id);
+    if (!ord) return res.status(404).json({ error: 'Porosia nuk u gjet.' });
+    const { status } = req.body;
+    if (!['Në pritje','Në dërgesë','Kryer','Refuzuar'].includes(status)) {
+      return res.status(400).json({ error: 'Status i pavlefshëm.' });
+    }
+    await ord.update({ status });
+    res.json(ord);
+  } catch (err) {
+    res.status(500).json({ error: 'Gabim gjatë ndryshimit të statusit.' });
+  }
+});
 
-// Sinkronizo databazën dhe nise serverin NJËHERË!
-sequelize.sync()
-  .then(() => {
-    console.log('DB u sinkronizua');
-    app.listen(PORT, () => {
-      console.log(`Serveri po dëgjon në portin ${PORT}`);
+app.delete('/api/orders/:id', verifyAdmin, async (req, res) => {
+  try {
+    const deleted = await Order.destroy({ where: { id: req.params.id } });
+    if (!deleted) return res.status(404).json({ error: 'Porosia nuk u gjet.' });
+    res.json({ message: 'Porosia u fshi me sukses.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Gabim gjatë fshirjes së porosisë.' });
+  }
+});
+
+// ========== SYNC & ADMIN SEED ==========
+(async () => {
+  try {
+    await sequelize.sync();
+    // Krijo admin nëse nuk ekziston
+    const [admin, created] = await User.findOrCreate({
+      where: { username: 'superadmin' },
+      defaults: {
+        password: await bcrypt.hash('Password123!', 10),
+        role: 'admin'
+      }
     });
-  })
-  .catch(err => console.log('Gabim në lidhje me DB:', err));
+    if (created) console.log('✅ Admin i parë u krijua:', admin.username);
+    else        console.log('ℹ️ Admin ekziston tashmë:', admin.username);
+
+    app.listen(PORT, () => console.log(`Server po dëgjon në port ${PORT}`));
+  } catch (err) {
+    console.error('DB sync error:', err);
+  }
+})();
