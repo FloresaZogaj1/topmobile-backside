@@ -20,7 +20,7 @@ const adminRoutes  = require('./routes/admin');
 // === CORS SETUP ===
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://idyllic-panda-38509b.netlify.app/',     // Shto këtu domain-in tënd të frontit në deploy (Netlify)
+  'https://idyllic-panda-38509b.netlify.app',     // Shto këtu domain-in tënd të frontit në deploy (Netlify)
   'https://topmobile-frontside-production.up.railway.app', // Nëse ke Railway ose tjetër
   // Shto edhe çdo domain tjetër që mund ta përdorësh në të ardhmen
 ];
